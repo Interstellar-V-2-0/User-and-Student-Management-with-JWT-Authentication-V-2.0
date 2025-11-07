@@ -1,33 +1,24 @@
-# --- Carpetas compiladas ---
+# Build
 bin/
 obj/
+*/bin/
+*/obj/
 
-# --- Configuración de IDEs ---
+# Environment and secrets
+.env
+UserStudentMgmt.Api/appsettings.json
+UserStudentMgmt.Api/appsettings.Development.json
+
+# IDEs
 .vs/
 .vscode/
 .idea/
-
-# --- Archivos temporales y logs ---
 *.user
 *.suo
+
+# Logs and temp
 *.log
 *.tmp
-
-# --- Archivos de entorno locales ---
-.env
-.env.*
-appsettings.Development.json
-
-# --- Archivos del sistema ---
-.DS_Store
+*.cache
 Thumbs.db
-
-# --- Docker auxiliares ---
-docker-compose.override.yml
-
-# --- Repositorio ---
-.git
-.gitignore
-
-# --- Otros ---
-node_modules/
+.

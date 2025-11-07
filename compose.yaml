@@ -1,0 +1,7 @@
+﻿services:
+  userstudentmgmt.api:
+    image: userstudentmgmt.api
+    build:
+      context: .
+      dockerfile: UserStudentMgmt.Api/Dockerfile
+

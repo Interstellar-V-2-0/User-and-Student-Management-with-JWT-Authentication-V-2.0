@@ -17,6 +17,9 @@ JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ============================
+// 🔧 Configuración general
+// ============================
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -60,13 +63,25 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// ============================
+// 🗄️ Configuración de MySQL (Render)
+// ============================
+// Render usa variables de entorno (Environment Variables).
+// En Render define: DB_CONNECTION="server=...;port=3306;database=...;user=...;password=...;sslmode=Required"
+
+var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION")
+                       ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        connectionString,
         new MySqlServerVersion(new Version(8, 0, 36))
     )
 );
 
+// ============================
+// 💡 Inyección de dependencias
+// ============================
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
@@ -81,8 +96,15 @@ builder.Services.AddScoped<IRoleService, RoleService>();
 
 builder.Services.AddAutoMapper(typeof(UserStudentMgmt.Application.Mappings.Profiles.UserProfile).Assembly);
 
-var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]);
+// ============================
+// 🔐 Configuración JWT
+// ============================
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? jwtSection["Key"];
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? jwtSection["Issuer"];
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? jwtSection["Audience"];
+
+var key = Encoding.UTF8.GetBytes(jwtKey ?? throw new Exception("JWT_KEY no configurada"));
 
 builder.Services.AddAuthentication(options =>
 {
@@ -97,37 +119,42 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidAudience = jwtSettings["Audience"],
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(key),
         NameClaimType = ClaimTypes.Name,
         RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
     };
 });
 
-
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+// ============================
+// 🌱 Seeding inicial (opcional)
+// ============================
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await DbSeeder.SeedAsync(dbContext);
 }
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "User & Student Management API v1");
-        c.RoutePrefix = string.Empty;
-    });
-}
+// ============================
+// 🚀 Middlewares
+// ============================
 
-app.UseHttpsRedirection();
+// Render corre detrás de un proxy HTTPS, así que NO fuerces HTTPS dentro del contenedor.
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "User & Student Management API v1");
+    c.RoutePrefix = string.Empty;
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
+
 app.Run();
