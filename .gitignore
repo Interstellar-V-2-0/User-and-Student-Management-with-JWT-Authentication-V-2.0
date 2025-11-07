@@ -1,0 +1,23 @@
+
+#ARCHIVOS A IGNORAR EN GIT
+
+# Archivos temporales de compilación
+bin/
+obj/
+
+# Archivos de entorno y configuración sensible
+.env
+UserStudentMgmt.Api/appsettings.json
+
+# Archivos de IDE
+.vs/
+.vscode/
+.idea/
+*.user
+
+# Logs
+*.log
+
+# Archivos del sistema
+Thumbs.db
+.DS_Store
