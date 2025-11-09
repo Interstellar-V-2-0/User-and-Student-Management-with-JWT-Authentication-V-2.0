@@ -26,12 +26,10 @@ public class AuthService : IAuthService
         _roleRepository = roleRepository;
     }
 
-    // Agregué parámetro creatorRole para validar si el usuario que crea tiene permisos de Admin
     public async Task<AuthResponseDto> RegisterAsync(RegisterRequestDto request, string? creatorRole = null)
     {
         Role roleToAssign;
 
-        // Solo si el creador es Admin y se especifica rol distinto a User, se asigna el rol solicitado
         if (creatorRole == "Admin" && !string.IsNullOrWhiteSpace(request.RoleName) && request.RoleName != "User")
         {
             roleToAssign = await _roleRepository.GetByNameAsync(request.RoleName);
@@ -40,11 +38,9 @@ public class AuthService : IAuthService
         }
         else
         {
-            // Por defecto o si el creador no es Admin, se asigna el rol User
             roleToAssign = await _roleRepository.GetByNameAsync("User");
             if (roleToAssign == null)
             {
-                // En caso que no exista el rol User en la BD, se crea
                 roleToAssign = new Role { Name = "User" };
                 await _roleRepository.AddAsync(roleToAssign);
             }
@@ -71,18 +67,26 @@ public class AuthService : IAuthService
 
     private AuthResponseDto GenerateJwtToken(User user, string role)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
+       
+        var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? _config["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(jwtKey))
+            throw new Exception("JWT_KEY no está configurada.");
+
+        var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? _config["Jwt:Issuer"];
+        var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? _config["Jwt:Audience"];
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.UserName),
-            new Claim(ClaimTypes.Role, role)  // Aquí uso ClaimTypes.Role que coincide con RoleClaimType configurado
+            new Claim(ClaimTypes.Role, role)
         };
 
         var token = new JwtSecurityToken(
-            issuer: _config["Jwt:Issuer"],
-            audience: _config["Jwt:Audience"],
+            issuer: jwtIssuer,
+            audience: jwtAudience,
             claims: claims,
             expires: DateTime.UtcNow.AddHours(4),
             signingCredentials: creds
